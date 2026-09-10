@@ -52,6 +52,75 @@ Useful for...
 }
 ```
 
+#### Wraps to specified line length
+`formatHierarchy(data, { wrapAtWidth: 80 })`
+```json
+{
+ "team":{
+  "name":"Support",
+  "members":[
+   {"name":"Ann","role":"admin","aliases":["Anna","Annabel","Annie","Beth"]},
+   {"name":"Bob","role":"developer"}, {"name":"Charlie","role":"tester"},
+   {"name":"Dan","role":"project manager"}, {"name":"Eve","role":"designer"},
+   {"name":"Frank","role":"assistant to the regional sales manager"},
+   {"name":"Guy","role":"deputy assistant to the regional sales manager"},
+   {"name":"Hank","role":"intern"}, {"name":"Inga","role":"intern"},
+  ],
+ },
+}
+```
+
+`formatHierarchy(data, { wrapAtWidth: 30 })`
+```json
+{
+ "team":{
+  "name":"Support",
+  "members":[
+   {
+    "name":"Ann",
+    "role":"admin",
+    "aliases":[
+     "Anna", "Annabel",
+     "Annie", "Beth",
+    ],
+   },
+   {
+    "name":"Bob",
+    "role":"developer",
+   },
+   {
+    "name":"Charlie",
+    "role":"tester",
+   },
+   {
+    "name":"Dan",
+    "role":"project manager",
+   },
+   {
+    "name":"Eve",
+    "role":"designer",
+   },
+   {
+    "name":"Frank",
+    "role":"assistant to the regional sales manager",
+   },
+   {
+    "name":"Guy",
+    "role":"deputy assistant to the regional sales manager",
+   },
+   {
+    "name":"Hank",
+    "role":"intern",
+   },
+   {
+    "name":"Inga",
+    "role":"intern",
+   },
+  ],
+ },
+}
+```
+
 ## Installation
 
 ```bash
