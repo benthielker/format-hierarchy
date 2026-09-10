@@ -1,5 +1,9 @@
 # format-hierarchy
 
+[![npm version](https://img.shields.io/npm/v/format-hierarchy)](https://npmjs.com)
+[![npm license](https://img.shields.io/npm/l/format-hierarchy)](https://npmjs.com)
+
+
 A lightweight TypeScript / JavaScript utility to format and stringify objects and hierarchies with an emphasis on consuming less space when long lists of short values are present.
 
 ## Examples
@@ -71,6 +75,7 @@ Useful for...
 ```
 
 `formatHierarchy(data, { wrapAtWidth: 30 })`
+(note that long strings are not broken)
 ```json
 {
  "team":{
@@ -218,17 +223,12 @@ export interface FormatHierarchyOptions {
 export function formatHierarchy(
   obj: any,
   options?: FormatHierarchyOptions,
-  currentDepth?: number,
-  parentKeyPrefixLength?: number,
-  maxRecursionLimit?: number
 ): string | undefined;
 ```
 
 - **`obj`**: The object, array, or primitive value to format.
 - **`options`** *(optional)*: Configuration object (`FormatHierarchyOptions`).
-- **`currentDepth`** *(optional, default: 0)*: Internal recursion tracking.
-- **`parentKeyPrefixLength`** *(optional, default: 0)*: Internal prefix length tracking for indentation calculation.
-- **`maxRecursionLimit`** *(optional, default: 99)*: Maximum allowable recursion depth before halting.
+
 
 ## Development
 
