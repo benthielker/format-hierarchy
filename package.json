@@ -9,7 +9,7 @@
     "url": "https://github.com/benthielker/format-hierarchy/issues"
   },
   "homepage": "https://github.com/benthielker/format-hierarchy#readme",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A lightweight TypeScript / JavaScript utility to format and stringify objects and hierarchies with an emphasis on consuming less space when long lists of short values are present.",
   "type": "module",
   "main": "./dist/index.cjs",
