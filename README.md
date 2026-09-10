@@ -12,11 +12,12 @@ Useful for...
  "team":{
   "name":"Support",
   "members":[
-   "Ann", "Alice", "Bob", "Dan", "Charlie", "Eleanor", 
-   "Fiona", "Gina", "Harry", "Ivy", "Jack", "Kate", 
-   "Leo", "Mia", "Nick", "Olivia", "Pam", "Quinn", 
-   "Rose", "Sam", "Tina", "Uma", "Victor", "Wendy", 
-   "Xavier", "Yara", "Zack", 
+   "Ann", "Alice", "Bob", "Dan", "Charlie",
+   "Eleanor", "Fiona", "Gina", "Harry", "Ivy",
+   "Jack", "Kate", "Leo", "Mia", "Nick",
+   "Olivia", "Pam", "Quinn", "Rose", "Sam",
+   "Tina", "Uma", "Victor", "Wendy", "Xavier",
+   "Yara", "Zack",
   ],
  },
 }
@@ -28,18 +29,24 @@ Useful for...
  "team":{
   "name":"Support",
   "members":[
-   {"name":"Ann","role":"admin"}, {"name":"Bob","role":"developer"}, 
-   {"name":"Charlie","role":"tester"}, 
-   {"name":"Dan","role":"project manager"}, 
-   {"name":"Eve","role":"designer"}, {
+   {"name":"Ann","role":"admin"},
+   {"name":"Bob","role":"developer"},
+   {"name":"Charlie","role":"tester"},
+   {
+    "name":"Dan",
+    "role":"project manager",
+   },
+   {"name":"Eve","role":"designer"},
+   {
     "name":"Frank",
     "role":"assistant to the regional sales manager",
-   }, 
+   },
    {
     "name":"Guy",
     "role":"deputy assistant to the regional sales manager",
-   }, 
-   {"name":"Hank","role":"intern"}, {"name":"Inga","role":"intern"}, 
+   },
+   {"name":"Hank","role":"intern"},
+   {"name":"Inga","role":"intern"},
   ],
  },
 }
@@ -59,9 +66,8 @@ pnpm add format-hierarchy
 
 ## Features
 
-- **Custom Depth Limiting (`depthLimit`)**: Limit how many levels deep the formatter expands before keeping deeper nodes inline.
-- **Adaptive Inline Thresholds (`maxInlineLength`)**: Keep short objects and arrays compact on a single line, only expanding nodes that exceed your character threshold.
-- **Array Wrapping**: Automatically wraps long arrays of short items across multiple rows once a row exceeds `maxInlineLength`.
+- **Width-Aware Line Wrapping (`wrapAtWidth`)**: Target a maximum column width in characters; items and lines wrap automatically once the threshold is reached.
+- **Context-Aware Object Inlining**: Short objects and arrays stay compact on a single line if they fit within the remaining column width (accounting for indentation and property key length).
 - **Safe Stringification**: Safely catches circular references or serialization errors by embedding error messages instead of throwing.
 - **Dual Package**: Provides full TypeScript definitions (`.d.ts`), ES Modules (`esm`), and CommonJS (`cjs`) builds.
 
@@ -84,7 +90,7 @@ const data = {
   tags: ["admin", "developer"],
 };
 
-// Default formatting (depthLimit = Infinity)
+// Full multi-line formatting (default)
 console.log(formatHierarchy(data));
 ```
 
@@ -106,36 +112,11 @@ Output:
 }
 ```
 
-### Options
-
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `depthLimit` | `number` | `Infinity` | Maximum nesting depth to expand multi-line. Nodes at or beyond this depth remain serialized inline on a single line. |
-| `maxInlineLength` | `number` | `undefined` | Maximum character length for compact inline representations. Nodes with serialized length `<= maxInlineLength` remain on one line, and array rows wrap when exceeding this limit. |
-
-### Option Examples
-
-#### 1. Fixed Depth Limiting (`depthLimit`)
+### Width-Aware Wrapping (`wrapAtWidth`)
 
 ```typescript
-// Only expand top-level properties; deeper nested objects stay inline
-const depth1 = formatHierarchy(data, { depthLimit: 1 });
-```
-
-Output:
-```
-{
- "id":"user-123",
- "profile":{"name":"Alice","settings":{"theme":"dark","notifications":true}},
- "tags":["admin","developer"],
-}
-```
-
-#### 2. Adaptive Line Length (`maxInlineLength`)
-
-```typescript
-// Short objects and lists stay inline; nodes exceeding 40 characters expand
-const compact = formatHierarchy(data, { maxInlineLength: 40 });
+// Keep compact structures inline and wrap lines at 40 characters
+const result = formatHierarchy(data, { wrapAtWidth: 40 });
 ```
 
 Output:
@@ -152,28 +133,24 @@ Output:
 }
 ```
 
-#### 3. Combined Depth and Length Limits
+## Options
 
-```typescript
-// Expand up to 2 levels deep, but inline any children under 50 characters
-const result = formatHierarchy(data, {
-  depthLimit: 2,
-  maxInlineLength: 50,
-});
-```
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `wrapAtWidth` | `number` | `undefined` | Target line/column width in characters. When specified, short objects/arrays stay inline if they fit on the line, and array rows wrap once exceeding this width. |
 
 ## API
 
 ```typescript
 export interface FormatHierarchyOptions {
-  depthLimit?: number;
-  maxInlineLength?: number;
+  wrapAtWidth?: number;
 }
 
 export function formatHierarchy(
   obj: any,
   options?: FormatHierarchyOptions,
   currentDepth?: number,
+  parentKeyPrefixLength?: number,
   maxRecursionLimit?: number
 ): string | undefined;
 ```
@@ -181,6 +158,7 @@ export function formatHierarchy(
 - **`obj`**: The object, array, or primitive value to format.
 - **`options`** *(optional)*: Configuration object (`FormatHierarchyOptions`).
 - **`currentDepth`** *(optional, default: 0)*: Internal recursion tracking.
+- **`parentKeyPrefixLength`** *(optional, default: 0)*: Internal prefix length tracking for indentation calculation.
 - **`maxRecursionLimit`** *(optional, default: 99)*: Maximum allowable recursion depth before halting.
 
 ## Development

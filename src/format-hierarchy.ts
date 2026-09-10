@@ -20,6 +20,8 @@ function tryStringify(
 }
 
 /**
+ * Original draft of function for posterity.
+ * 
  * Stringifies given object with multi-line formatting up to given depth.
  *
  * Negative depth values are mode overrides...
@@ -31,7 +33,7 @@ function tryStringify(
  * @param formatDepth The maximum formatting depth or mode override (default: 1)
  * @param atDepth The current recursion depth (internal tracking)
  * @returns Formatted string representation of the object, or undefined if obj is undefined
- */
+ 
 export function formatHierarchyOld(
     obj: any,
     formatDepth?: number,
@@ -123,7 +125,7 @@ export function formatHierarchyOld(
         result = `ERROR: object too deep (${atDepth})`;
     }
     return result;
-}
+}*/
 
 
 /**
@@ -131,134 +133,121 @@ export function formatHierarchyOld(
  */
 export interface FormatHierarchyOptions {
     /**
-     * Maximum recursion depth to expand into multi-line formatting.
-     * Nodes beyond this depth are serialized compactly on a single line.
-     *
-     * - `1` (default): Expands only top-level properties.
-     * - `n > 1`: Expands up to `n` levels deep.
-     * - `Infinity`: Unlimited depth.
-     *
-     * @default 1 (or `Infinity` if `maxInlineLength` is provided without `depthLimit`)
-     */
-    depthLimit?: number;
-
-    /**
-     * Maximum character length for compact inline representation.
+     * Target maximum line/column width in characters before wrapping lines or expanding nested structures.
      *
      * When specified:
-     * - Objects and arrays whose compact stringified length is `<= maxInlineLength`
-     *   remain on a single line.
-     * - Array items are wrapped onto new lines when a row exceeds this character limit.
+     * - Compact representations of objects and arrays stay inline if they fit within `wrapAtWidth`
+     *   (accounting for current indentation and property key length).
+     * - Items in an array are packed onto lines and wrapped once adding another item exceeds `wrapAtWidth`.
      *
-     * @example 40 // Keep nodes shorter than 40 chars on one line
+     * @default undefined (no width wrapping threshold; full multi-line expansion across all levels)
+     *
+     * @example 40 // Wrap lines and expand structures when exceeding 40 characters
      */
-    maxInlineLength?: number;
+    wrapAtWidth?: number;
 }
 
-
 /**
- * Formats and stringifies an object hierarchy with customizable depth limits
- * and compact single-line thresholds.
+ * Formats and stringifies an object hierarchy with compact line wrapping
+ * based on a target width limit.
  *
- * @param obj The object or value to format
- * @param options Formatting configuration options (or depth number)
+ * @param obj The object, array, or primitive value to format
+ * @param options Formatting configuration options (e.g. `{ wrapAtWidth: 40 }`)
+ * @param currentDepth Internal recursion depth tracker (default: 0)
+ * @param parentKeyPrefixLength Internal tracker for the current property key prefix length on the line
+ * @param maxRecursionLimit Hard limit to prevent infinite recursion on circular or ultra-deep objects (default: 99)
  * @returns Formatted string representation, or `undefined` if `obj` is `undefined`
  *
  * @example
  * ```typescript
- * // Fixed depth:
- * formatHierarchy(data, { depthLimit: 2 });
+ * // Full multi-line format
+ * formatHierarchy(data);
  *
- * // Adaptive inline length:
- * formatHierarchy(data, { maxInlineLength: 40 });
- *
- * // Combined:
- * formatHierarchy(data, { depthLimit: 2, maxInlineLength: 40 });
+ * // Compact wrapping at 40 characters width
+ * formatHierarchy(data, { wrapAtWidth: 40 });
  * ```
  */
 export function formatHierarchy(
     obj: any,
     options?: FormatHierarchyOptions,
     currentDepth: number = 0,
+    parentKeyPrefixLength: number = 0,
     maxRecursionLimit: number = 99,
 ): string | undefined {
-    if (obj === undefined) {
-        return undefined;
-    }
+    if (obj === undefined) return undefined;
 
-    const maxDepth = options?.depthLimit ?? Infinity;
-    const maxInlineLength = options?.maxInlineLength;
-
-    // If max depth reached, format inline (hard limit to prevent infinite recursion)
-    if (currentDepth >= Math.min(maxRecursionLimit, maxDepth)) {
+    if (currentDepth >= maxRecursionLimit) {
         return tryStringify(obj);
     }
 
-    // If maxInlineLength is specified, check if the entire object fits on one line
-    if (maxInlineLength !== undefined && typeof obj === "object" && obj !== null) {
+    const wrapAtWidth = options?.wrapAtWidth;
+    const indent = " ".repeat(currentDepth);
+    const availableWidth = wrapAtWidth !== undefined
+        ? Math.max(0, wrapAtWidth - indent.length - parentKeyPrefixLength)
+        : undefined;
+
+    // Check if the entire object fits on the current line within available width
+    if (availableWidth !== undefined && typeof obj === "object" && obj !== null) {
         const stringified = tryStringify(obj);
-        if (stringified.length <= maxInlineLength) {
+        if (stringified.length <= availableWidth) {
             return stringified;
         }
     }
 
     if (obj && typeof obj === "object") {
         const nextDepth = currentDepth + 1;
-        const indent = " ".repeat(nextDepth);
-        const indentOuter = " ".repeat(currentDepth);
+        const childIndent = " ".repeat(nextDepth);
 
         if (Array.isArray(obj)) {
-            if (!obj.length) {
-                return "[]";
-            }
+            if (!obj.length) return "[]";
             let result = "[\n";
-            let childRow = `${indent}`;
+            let childRow = `${childIndent}`;
+
             for (let i = 0; i < obj.length; i++) {
                 const child = obj[i];
-                let formattedChild: string | undefined = "";
-                if (child !== undefined && child !== null) {
-                    formattedChild = formatHierarchy(child, options, nextDepth);
-                } else if (child === null) {
-                    formattedChild = tryStringify(child);
+                const formattedChild = child === null
+                    ? "null"
+                    : formatHierarchy(child, options, nextDepth, 0, maxRecursionLimit) ?? "";
+
+                const isMultiLine = formattedChild.includes("\n");
+                const itemLength = formattedChild.length + 2; // ", "
+
+                // If adding this item exceeds width, or if item is multi-line, wrap first
+                if (childRow.trim().length > 0 && (isMultiLine || (wrapAtWidth !== undefined && childRow.length + itemLength > wrapAtWidth))) {
+                    result += `${childRow.trimEnd()}\n`;
+                    childRow = `${childIndent}`;
                 }
 
                 childRow += `${formattedChild}, `;
-                const shouldWrap =
-                    maxInlineLength !== undefined
-                        ? childRow.length > maxInlineLength
-                        : true;
 
-                if (i < obj.length - 1 && shouldWrap) {
-                    result += `${childRow}\n`;
-                    childRow = `${indent}`;
+                if (isMultiLine) {
+                    result += `${childRow.trimEnd()}\n`;
+                    childRow = `${childIndent}`;
                 }
             }
-            result += `${childRow}\n`;
-            result += `${indentOuter}]`;
+
+            if (childRow.trim().length > 0) {
+                result += `${childRow.trimEnd()}\n`;
+            }
+            result += `${indent}]`;
             return result;
         } else {
             const keys = Object.keys(obj);
-            if (!keys.length) {
-                return "{}";
-            }
+            if (!keys.length) return "{}";
             let result = "{\n";
             for (const k of keys) {
                 const child = obj[k];
-                if (child !== undefined && child !== null) {
-                    result += `${indent}${JSON.stringify(k)}:${formatHierarchy(
-                        child,
-                        options,
-                        nextDepth
-                    )},\n`;
-                } else if (child === null) {
-                    result += `${indent}${JSON.stringify(k)}:${tryStringify(child)},\n`;
-                }
+                const keyPrefix = `${JSON.stringify(k)}:`;
+                const formattedChild = child === null
+                    ? "null"
+                    : formatHierarchy(child, options, nextDepth, keyPrefix.length, maxRecursionLimit);
+
+                result += `${childIndent}${keyPrefix}${formattedChild},\n`;
             }
-            result += `${indentOuter}}`;
+            result += `${indent}}`;
             return result;
         }
     }
 
     return tryStringify(obj);
 }
-
