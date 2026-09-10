@@ -246,6 +246,10 @@ npm run typecheck
 npm run build
 ```
 
+## Background
+
+Read more about why this utility was created and its origins in [BACKGROUND.md](./BACKGROUND.md).
+
 ## License
 
 MIT
