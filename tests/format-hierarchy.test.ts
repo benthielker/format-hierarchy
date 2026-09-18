@@ -123,4 +123,47 @@ describe("formatHierarchy", () => {
  },
 }`);
   });
+
+  it("should handle undefined values inside arrays and objects", () => {
+    expect(formatHierarchy([1, undefined, 2])).toBe('[\n 1, null, 2,\n]'); // or expected design
+    expect(formatHierarchy({ a: undefined, b: 1 })).toBe('{\n "b":1,\n}');
+  });
+
+  it("should format shared object instances in DAGs without treating them as circular", () => {
+    const shared = { name: "shared", value: 42 };
+    const root = { first: shared, second: shared };
+    const result = formatHierarchy(root);
+    expect(result).toBe('{\n "first":{\n  "name":"shared",\n  "value":42,\n },\n "second":{\n  "name":"shared",\n  "value":42,\n },\n}');
+  });
+
+  it("should handle circular arrays and mutual circular loops without stack overflow", () => {
+    const arr: any[] = [1, 2];
+    arr.push(arr);
+    expect(() => formatHierarchy(arr)).not.toThrow();
+
+    const nodeA: any = { name: "A" };
+    const nodeB: any = { name: "B", parent: nodeA };
+    nodeA.child = nodeB;
+    expect(() => formatHierarchy(nodeA)).not.toThrow();
+  });
+
+  it("should truncate expansion and fallback to stringify when maxRecursionLimit is hit", () => {
+    const deepObj = { a: { b: { c: { d: 1 } } } };
+    const result = formatHierarchy(deepObj, undefined, 0, 0, 2);
+    expect(result).toBe('{\n "a":{\n  "b":{"c":{"d":1}},\n },\n}');
+  });
+
+  it("should handle non-standard primitives and throw-prone types gracefully", () => {
+    expect(formatHierarchy(NaN)).toBe("null");
+    expect(formatHierarchy(Infinity)).toBe("null");
+    expect(formatHierarchy(10n)).toContain("BigInt"); // verifies tryStringify catch branch
+  });
+
+  it("should format object keys containing special characters or quotes", () => {
+    const input = { 'key "with" quotes': 1, "line\nbreak": 2, "a:b": 3 };
+    const result = formatHierarchy(input);
+    expect(result).toContain('"key \\"with\\" quotes":1');
+    expect(result).toContain('"line\\nbreak":2');
+  });
+
 });

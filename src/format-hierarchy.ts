@@ -91,7 +91,7 @@ export function formatHierarchy(
                 let result = "[\n";
                 let childRow = childIndent;
                 for (let i = 0; i < obj.length; i++) {
-                    const formattedChild = formatHierarchy(obj[i], options, nextDepth, 0, maxRecursionLimit, visited) ?? "";
+                    const formattedChild = formatHierarchy(obj[i], options, nextDepth, 0, maxRecursionLimit, visited) ?? "null";
                     const isMultiLine = formattedChild.includes("\n");
                     const itemLength = formattedChild.length + 2; // ", "
                     // Check if row already has items (length > childIndent.length) without allocating trimmed strings
@@ -114,12 +114,17 @@ export function formatHierarchy(
                 const entries = Object.entries(obj);
                 if (!entries.length) return "{}";
                 let result = "{\n";
+                let count = 0;
                 for (let i = 0; i < entries.length; i++) {
                     const [k, child] = entries[i];
+                    if (child === undefined) continue;
                     const keyPrefix = `${JSON.stringify(k)}:`;
-                    const formattedChild = formatHierarchy(child, options, nextDepth, keyPrefix.length, maxRecursionLimit, visited) ?? "";
+                    const formattedChild = formatHierarchy(child, options, nextDepth, keyPrefix.length, maxRecursionLimit, visited);
+                    if (formattedChild === undefined) continue;
                     result += `${childIndent}${keyPrefix}${formattedChild},\n`;
+                    count++;
                 }
+                if (count === 0) return "{}";
                 result += `${indent}}`;
                 return result;
             }
