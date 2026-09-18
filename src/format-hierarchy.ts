@@ -6,17 +6,11 @@ function tryStringify(
     arg2?: ((this: any, key: string, value: any) => any) | (number | string)[] | null,
     arg3?: string | number
 ): string {
-    let stringified = "";
     try {
-        stringified = JSON.stringify(arg1, arg2 as any, arg3);
+        return JSON.stringify(arg1, arg2 as any, arg3);
     } catch (e: unknown) {
-        if (e instanceof Error) {
-            stringified = e.message;
-        } else {
-            stringified = String(e);
-        }
+        return e instanceof Error ? e.message : String(e);
     }
-    return stringified;
 }
 
 /**
@@ -64,17 +58,19 @@ export function formatHierarchy(
     currentDepth: number = 0,
     parentKeyPrefixLength: number = 0,
     maxRecursionLimit: number = 99,
+    visited: Set<unknown> = new Set(),
 ): string | undefined {
     if (obj === undefined) return undefined;
 
-    if (currentDepth >= maxRecursionLimit) {
+    // avoid circular reference via check for presence of obj in visited set.
+    if (currentDepth >= maxRecursionLimit || (typeof obj === "object" && obj !== null && visited.has(obj))) {
         return tryStringify(obj);
     }
 
     const wrapAtWidth = options?.wrapAtWidth;
-    const indent = " ".repeat(currentDepth);
+    const indentLength = currentDepth;
     const availableWidth = wrapAtWidth !== undefined
-        ? Math.max(0, wrapAtWidth - indent.length - parentKeyPrefixLength)
+        ? Math.max(0, wrapAtWidth - indentLength - parentKeyPrefixLength)
         : undefined;
 
     // Check if the entire object fits on the current line within available width
@@ -84,61 +80,52 @@ export function formatHierarchy(
             return stringified;
         }
     }
-
     if (obj && typeof obj === "object") {
+        visited.add(obj);
         const nextDepth = currentDepth + 1;
+        const indent = " ".repeat(currentDepth);
         const childIndent = " ".repeat(nextDepth);
-
-        if (Array.isArray(obj)) {
-            if (!obj.length) return "[]";
-            let result = "[\n";
-            let childRow = `${childIndent}`;
-
-            for (let i = 0; i < obj.length; i++) {
-                const child = obj[i];
-                const formattedChild = child === null
-                    ? "null"
-                    : formatHierarchy(child, options, nextDepth, 0, maxRecursionLimit) ?? "";
-
-                const isMultiLine = formattedChild.includes("\n");
-                const itemLength = formattedChild.length + 2; // ", "
-
-                // If adding this item exceeds width, or if item is multi-line, wrap first
-                if (childRow.trim().length > 0 && (isMultiLine || (wrapAtWidth !== undefined && childRow.length + itemLength > wrapAtWidth))) {
-                    result += `${childRow.trimEnd()}\n`;
-                    childRow = `${childIndent}`;
+        try {
+            if (Array.isArray(obj)) {
+                if (!obj.length) return "[]";
+                let result = "[\n";
+                let childRow = childIndent;
+                for (let i = 0; i < obj.length; i++) {
+                    const formattedChild = formatHierarchy(obj[i], options, nextDepth, 0, maxRecursionLimit, visited) ?? "";
+                    const isMultiLine = formattedChild.includes("\n");
+                    const itemLength = formattedChild.length + 2; // ", "
+                    // Check if row already has items (length > childIndent.length) without allocating trimmed strings
+                    if (childRow.length > childIndent.length && (isMultiLine || (wrapAtWidth !== undefined && childRow.length + itemLength > wrapAtWidth))) {
+                        result += `${childRow.slice(0, -1)}\n`; // strip trailing space before newline
+                        childRow = childIndent;
+                    }
+                    childRow += `${formattedChild}, `;
+                    if (isMultiLine) {
+                        result += `${childRow.slice(0, -1)}\n`;
+                        childRow = childIndent;
+                    }
                 }
-
-                childRow += `${formattedChild}, `;
-
-                if (isMultiLine) {
-                    result += `${childRow.trimEnd()}\n`;
-                    childRow = `${childIndent}`;
+                if (childRow.length > childIndent.length) {
+                    result += `${childRow.slice(0, -1)}\n`;
                 }
+                result += `${indent}]`;
+                return result;
+            } else {
+                const entries = Object.entries(obj);
+                if (!entries.length) return "{}";
+                let result = "{\n";
+                for (let i = 0; i < entries.length; i++) {
+                    const [k, child] = entries[i];
+                    const keyPrefix = `${JSON.stringify(k)}:`;
+                    const formattedChild = formatHierarchy(child, options, nextDepth, keyPrefix.length, maxRecursionLimit, visited) ?? "";
+                    result += `${childIndent}${keyPrefix}${formattedChild},\n`;
+                }
+                result += `${indent}}`;
+                return result;
             }
-
-            if (childRow.trim().length > 0) {
-                result += `${childRow.trimEnd()}\n`;
-            }
-            result += `${indent}]`;
-            return result;
-        } else {
-            const keys = Object.keys(obj);
-            if (!keys.length) return "{}";
-            let result = "{\n";
-            for (const k of keys) {
-                const child = obj[k];
-                const keyPrefix = `${JSON.stringify(k)}:`;
-                const formattedChild = child === null
-                    ? "null"
-                    : formatHierarchy(child, options, nextDepth, keyPrefix.length, maxRecursionLimit);
-
-                result += `${childIndent}${keyPrefix}${formattedChild},\n`;
-            }
-            result += `${indent}}`;
-            return result;
+        } finally {
+            visited.delete(obj);
         }
     }
-
     return tryStringify(obj);
 }
